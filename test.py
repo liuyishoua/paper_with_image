@@ -1,13 +1,16 @@
 import os
 import time
+from PyPDF2 import PdfFileReader
 
-path = './core_function/images/style_info.txt'
+# path = './core_function/images/style_info.txt'
+# from PIL import Image
+# png = Image.open('images/1.png')
+# print (png.size)
+pdfimage = PdfFileReader(open('C:/Users/刘志远/Desktop/paper/Transferability in Machine Learning from Phenomena to.pdf', "rb"))
+for i in range(pdfimage.getNumPages()):
+    page = pdfimage.getPage(i)
+    print (page.mediaBox)
 
-with open(path,'a') as file:
-    file.write('\n'+'haha'+' '+'哈哈')
-    # for i in range(2):
-    #     file.write('我 是\n')
-    # print (lines)
 
 # dirss = 'handle_pdf'
 # file_path_list = []

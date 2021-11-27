@@ -1,20 +1,23 @@
 import os
+import time
 import zipfile
-# from waitress import serve
 from core_function import main
-from flask import Flask,render_template
+from flask import Flask, app,render_template
 from flask import request, send_from_directory, send_file
 from PyPDF2 import PdfFileWriter, PdfFileReader
 # os.chdir('C:\\Users\\刘志远\\AnacondaProjects\\2022 project\\paper_with_image')
 
-app = Flask(__name__, static_url_path='')
+# app = Flask(__name__, static_url_path='')
+app = Flask(__name__)
 app.config['STYLE_INFO'] = './core_function/images/style_info.txt'
 app.config['UPLOAD_STYLE_IMAGE'] = './core_function/images/image_style'
 app.config['UPLOAD_STYLE_TRANSPARENT'] = './core_function/images/transparent'
 app.config['UPLOAD_STYLE_PDF'] = './core_function/images/pdf'
+app.config['STYLE_ROOT'] = 'core_function/images/pdf'
 app.config['UPLOAD_FOLDER'] = './uploads'
 app.config['HANDLE_FOLDER'] = './handle_pdf'
-app.config['STYLE_ROOT'] = 'core_function/images/pdf'
+app.config['STATIC_IMAGES'] = './images'
+
 
 @app.route('/')
 def index():
@@ -35,13 +38,13 @@ def upload_style():
     float_transparent = float(transparent)
     write_or_not_flag = 0
     if not transparent:
-        return '透明度没有值'
+        return '<p>透明度没有值</p><a href = "../">返回主页。</a>'
     if not chinese_name:
-        return '风格中文名没有值'
+        return '<p>风格中文名没有值</p><a href = "../">返回主页。</a>'
     if not simple_name:
-        return '简写名没有值'
+        return '<p>简写名没有值</p><a href = "../">返回主页。</a>'
     if float_transparent < 0 or float_transparent > 1:
-        return '透明度范围为0-1，请按要求填写值'
+        return '<p>透明度范围为0-1，请按要求填写值</p><a href = "../">返回主页。</a>'
     upload_folder_name = simple_name
     upload_folder_path = os.path.join(app.config['UPLOAD_STYLE_IMAGE'],upload_folder_name)
     
@@ -51,7 +54,7 @@ def upload_style():
     for file in files:
         filename = file.filename
         if os.path.splitext(filename)[1] != '.jpg' and os.path.splitext(filename)[1] != '.jpeg' and os.path.splitext(filename)[1] != '.png':
-            return '上传存在非法图片，该系统仅支持jpg,jpeg与png格式'
+            return '<p>上传存在非法图片，该系统仅支持jpg,jpeg与png格式</p><a href = "../">返回主页。</a>'
         
     for file in files: 
         filename = file.filename
@@ -63,7 +66,7 @@ def upload_style():
     if write_or_not_flag:
         with open(app.config['STYLE_INFO'],'a') as file:
             file.write('\n'+simple_name+' '+chinese_name)
-    return "风格图片上传成功"
+    return "<p>风格图片上传成功</p><a href = '../'>返回主页</a>"
     
 @app.route('/style/file')
 def file():
@@ -73,33 +76,37 @@ def file():
 # 由于html url路径，只会进行flask进行路由。
 # 故需要单独为需要下载的文件设置路由
 @app.route('/handle_pdf/<path:filename>')
-def send_js(filename):
+def send_pdf(filename):
     return send_from_directory(directory=os.path.join(app.config['HANDLE_FOLDER']),filename=filename)
+
+@app.route('/images/<path:filename>')
+def send_image(filename):
+    return send_from_directory(directory=app.config['STATIC_IMAGES'],filename=filename)
 
 # parameter file and style.
 @app.route('/uploads/file', methods = ['GET','POST'])
 def handle_file():
-    print ('123')
-    file = request.files['filename']
-    filename = file.filename
+    file = request.files.get('filename')
     style_list = request.form.getlist('style_list')
-    if file:
-        if os.path.splitext(filename)[1] != '.pdf':
-            return 'What you have upload is not pdf file, Please return and input the specify file'
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'],filename)
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        file.save(file_path)
+    if file == None or len(style_list) == 0:
+        return "<p>please upload the files and fill the style table.</p><a href = '../'>返回主页。</a>"
+    filename = file.filename
+    if os.path.splitext(filename)[1] != '.pdf':
+        return '<p>What you have upload is not pdf file, Please return and input the specify file</p><a href = "../">返回主页。</a>'
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'],filename)
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    file.save(file_path)
+    output_file_path = os.path.join(app.config['HANDLE_FOLDER'],filename) 
+    if  os.path.exists(output_file_path):
+        os.remove(output_file_path)
+        print (f'remove {output_file_path}')
         
-        input_file = PdfFileReader(open(file_path, "rb"))
-        output_file = main.handle_file(input_file,style_list,app.config['STYLE_ROOT'])
-        output_file_path = os.path.join(app.config['HANDLE_FOLDER'],filename) 
-        if os.path.exists(output_file_path):
-            os.remove(output_file_path)
-        with open(output_file_path, "wb") as outputStream:
-            output_file.write(outputStream)
-        return render_template('upload_file.html',filename='http://127.0.0.1:5000/handle_pdf/'+filename,style_list = get_style_list(app.config['STYLE_INFO']))
-    return "hello"
+    input_file = PdfFileReader(open(file_path, "rb"))
+    output_file = main.handle_file(input_file,style_list,app.config['STYLE_ROOT'])
+    with open(output_file_path, "wb") as outputStream:
+        output_file.write(outputStream)
+    return render_template('upload_file.html',filename='/handle_pdf/'+filename,style_list = get_style_list(app.config['STYLE_INFO']))
 
 @app.route('/style/file_folder')
 def file_folder():
@@ -111,6 +118,8 @@ def handle_file_folder():
     # if many files, just add getlist is ok.
     files = request.files.getlist('filename')
     style_list = request.form.getlist('style_list')
+    if len(files) == 0 or len(style_list) == 0:
+        return "<p>please upload the files and fill the style table.</p><a href = '../'>返回主页。</a>"
     zip_name = 'style_pdf_files.zip'
     upload_folder_name = os.path.splitext(files[0].filename)[0]
     upload_folder_path = os.path.join(app.config['UPLOAD_FOLDER'],upload_folder_name)

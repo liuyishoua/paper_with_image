@@ -3,12 +3,10 @@ from . import my_utils
 from PIL import Image
 
 def image2transparent(image_folder_path,output_folder_path,rate = 0.5):
-    # record the info of rate in output folder
-    # with open(os.path.join(output_folder_path,'log.txt'),'w') as file:
-    #     file.write(f'the transparent of image is {rate}\n')
     # accroding the size of image, to design a adptative method
-    w ,h= 1800,1200
-    w1,h1 = 800,1200
+    # actually 612,792
+    x_paper = 620
+    y_paper = 1100
     if not os.path.exists(output_folder_path):
         os.mkdir(output_folder_path)
     # if image age is below 2 minites, we can get the image to transparent
@@ -16,10 +14,12 @@ def image2transparent(image_folder_path,output_folder_path,rate = 0.5):
     for iter,file_path in enumerate(folder_filespath):
         img = Image.open(file_path)
         x_s, y_s = img.size
-        if x_s > y_s:
-            img = img.resize((w,h))
+        x_rate = x_paper/x_s
+        y_rate = y_paper/y_s
+        if x_rate >= y_rate:
+            img = img.resize((int(x_s*x_rate),int(y_s*x_rate)))
         else:
-            img = img.resize((w1,h1))
+            img = img.resize((int(x_s*y_rate),int(y_s*y_rate)))
         img = img.convert("RGBA")
         x, y = img.size # 获得长和宽
         transparent = int(256*rate)
